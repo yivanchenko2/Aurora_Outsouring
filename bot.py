@@ -18,7 +18,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 logging.basicConfig(level=logging.INFO)
 
 # Conversation steps
-CHOOSING, ENTER_NAME, ENTER_IPN, ENTER_COMPANY, CHECK_STATUS = range(5)
+CHOOSING, ENTER_NAME, ENTER_IPN, CHECK_STATUS = range(4)
 
 # Menus
 main_keyboard = ReplyKeyboardMarkup([
@@ -99,24 +99,11 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ ІПН має містити рівно 10 цифр. Спробуйте ще раз:")
         return ENTER_IPN
 
-    context.user_data["ipn"] = text
-    await update.message.reply_text("🏢 Введіть назву компанії працівника:", reply_markup=cancel_keyboard)
-    return ENTER_COMPANY
-
-async def enter_company(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
-    if text.lower() == "скасувати":
-        return await cancel(update, context)
-
-    company = text.strip()
-    context.user_data["company"] = company
-
     surname, name, patronymic = context.user_data["name_parts"]
-    ipn = context.user_data["ipn"]
-    birthdate = calculate_birthdate(ipn)
+    birthdate = calculate_birthdate(text)
 
     sheet.append_row([
-        "",company, surname, name, patronymic, birthdate, ipn, "Очікує погодження", "", ""
+        "", surname, name, patronymic, birthdate, text, "Очікує погодження", "", ""
     ])
 
     await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
@@ -168,10 +155,6 @@ if __name__ == "__main__":
         ENTER_IPN: [
             MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
             MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)
-        ],
-        ENTER_COMPANY: [
-            MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, enter_company)
         ],
         CHECK_STATUS: [
             MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
