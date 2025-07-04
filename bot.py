@@ -136,12 +136,21 @@ if __name__ == "__main__":
         states={
             CHOOSING: [
                 MessageHandler(filters.Regex("^(➕ Додати працівника)$"), start_add),
-                MessageHandler(filters.Regex("^(📋 Перевірити статус)$"), start_check)
+                MessageHandler(filters.Regex("^(📋 Перевірити статус)$"), start_check),
             ],
-            ENTER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)],
-            ENTER_IPN: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)],
-            CHECK_STATUS: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)],
-        },
+            ENTER_NAME: [
+                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)
+            ],
+            ENTER_IPN: [
+                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)
+            ],
+            CHECK_STATUS: [
+                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)
+            ],
+        }
         fallbacks=[
             MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
             MessageHandler(filters.ALL, fallback)
