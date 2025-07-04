@@ -8,6 +8,8 @@ from telegram.ext import (
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import date, timedelta
+import json
+from io import StringIO
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,7 +26,9 @@ cancel_keyboard = ReplyKeyboardMarkup([[KeyboardButton("❌ Скасувати")
 
 # --- GOOGLE SHEET SETUP ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+creds_json = os.getenv("GOOGLE_CREDS_JSON")
+creds_dict = json.loads(creds_json)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 sheet = client.open("Aurora Outsourcing").sheet1
 
