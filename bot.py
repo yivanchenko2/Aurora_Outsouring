@@ -142,7 +142,10 @@ if __name__ == "__main__":
             ENTER_IPN: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)],
             CHECK_STATUS: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)],
         },
-        fallbacks=[MessageHandler(filters.ALL, fallback)],
+        fallbacks=[
+        MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+        MessageHandler(filters.ALL, fallback)
+    ],
         allow_reentry=True
     )
 
