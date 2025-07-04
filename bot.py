@@ -30,7 +30,7 @@ creds_json = os.getenv("Google_Creds_Json")
 creds_dict = json.loads(creds_json)
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open("Aurora Outsourcing").sheet1
+sheet = client.open("Перевірка аутсорс").sheet1
 
 # --- HELPERS ---
 def proper_case(text):
