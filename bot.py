@@ -99,11 +99,19 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ ІПН має містити рівно 10 цифр. Спробуйте ще раз:")
         return ENTER_IPN
 
+    # Перевірка дубліката
+    ipn = text
+    data = sheet.get_all_records()
+    for row in data:
+        if str(row.get("ІПН")) == ipn:
+            await update.message.reply_text("🚫 Працівника з таким ІПН вже додано. Спробуйте ще раз або перевірте статус.", reply_markup=main_keyboard)
+            return CHOOSING
+
     surname, name, patronymic = context.user_data["name_parts"]
-    birthdate = calculate_birthdate(text)
+    birthdate = calculate_birthdate(ipn)
 
     sheet.append_row([
-        "", surname, name, patronymic, birthdate, text, "Очікує погодження", "", ""
+        "", surname, name, patronymic, birthdate, ipn, "Очікує погодження", "", ""
     ])
 
     await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
