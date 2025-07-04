@@ -56,7 +56,16 @@ def calculate_birthdate(ipn:str)->str:
 
 # --- Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 Привіт! Оберіть дію:", reply_markup=main_keyboard)
+    user_first = update.effective_user.first_name
+    welcome_message = (
+        f"👋 Вітаю, {user_first}!\n\n"
+        "Цей бот створений для додавання працівників та перевірки їх статусу.\n"
+        "Скористайся меню нижче, щоб:\n"
+        "➕ Додати нового працівника\n"
+        "📋 Перевірити статус працівника\n\n"
+        "Якщо щось піде не так — натисни ❌ Скасувати."
+    )
+    await update.message.reply_text(welcome_message, reply_markup=main_keyboard)
     return CHOOSING
 
 async def start_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
