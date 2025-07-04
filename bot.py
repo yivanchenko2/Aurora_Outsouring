@@ -26,7 +26,7 @@ cancel_keyboard = ReplyKeyboardMarkup([[KeyboardButton("❌ Скасувати")
 
 # --- GOOGLE SHEET SETUP ---
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_json = os.getenv("GOOGLE_CREDS_JSON")
+creds_json = os.getenv("Google_Creds_Json")
 creds_dict = json.loads(creds_json)
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
@@ -129,7 +129,7 @@ async def fallback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- MAIN ---
 if __name__ == '__main__':
-    app = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
+    app = ApplicationBuilder().token(os.getenv("Telegram_Token")).build()
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
