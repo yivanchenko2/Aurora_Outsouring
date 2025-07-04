@@ -129,13 +129,13 @@ async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = sheet.get_all_records()
     for row in data:
-        if str(row["ІПН"]) == text:
-            pib = row.get("ПІБ", "").split()
-            if len(pib) >= 3:
-                name_patronymic = f"{pib[1]} {pib[2]}"
+        if str(row.get("ІПН", "")) == text:
+            full_name = row.get("ПІБ", "")
+            parts = full_name.split()
+            if len(parts) >= 3:
+                result = f'{parts[1]} {parts[2]} – {row["Статус"]}'
             else:
-                name_patronymic = row.get("ПІБ", "")
-            result = f'{name_patronymic} – {row["Статус"]}'
+                result = f'{full_name} – {row["Статус"]}'
             await update.message.reply_text(result, reply_markup=main_keyboard)
             return CHOOSING
 
