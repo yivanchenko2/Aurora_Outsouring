@@ -145,7 +145,7 @@ if __name__ == "__main__":
         },
         fallbacks=[
             CommandHandler("cancel", cancel),
-            MessageHandler(filters.Regex("^Скасувати$"), cancel)
+            MessageHandler(filters.Regex("^(❌ Скасувати|Скасувати)$"), cancel)
         ],
         allow_reentry=True
     )
