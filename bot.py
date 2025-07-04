@@ -44,10 +44,14 @@ def proper_case(text):
 def is_valid_ipn(text):
     return text.isdigit() and len(text) == 10
 
-def calculate_birthdate():
-    today = date.today()
-    birthdate = today - timedelta(days=18*365 + 4)  # мінус 18 років з урахуванням високосних
-    return birthdate.strftime("%d.%m.%Y")
+def calculate_birthdate(ipn: str) -> str:
+    try:
+        base_date = date(1900,1,1)
+        days = int(ipn[:5])
+        birthdate = base_date + timedelta(days=days - 1)
+        return birthdate.strftime("%d.%m.%Y")
+    except:
+        return ""
 
 # --- Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -86,7 +90,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ENTER_IPN
 
     surname, name, patronymic = context.user_data["name_parts"]
-    birthdate = calculate_birthdate()
+    birthdate = calculate_birthdate(text)
 
     sheet.append_row([
         "",surname, name, patronymic, birthdate, text, "Очікує погодження", "", ""
