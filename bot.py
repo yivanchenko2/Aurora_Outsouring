@@ -116,7 +116,7 @@ async def enter_company(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthdate = calculate_birthdate(ipn)
 
     sheet.append_row([
-        "", surname, name, patronymic, birthdate, ipn, "Очікує погодження", company, "", ""
+        "",company, surname, name, patronymic, birthdate, ipn, "Очікує погодження", "", ""
     ])
 
     await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
