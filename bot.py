@@ -32,10 +32,10 @@ cancel_keyboard = ReplyKeyboardMarkup([
 
 # Google Sheets init
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_dict = json.loads(os.getenv("GOOGLE_CREDS_JSON"))
+creds_dict = json.loads(os.getenv("Google_Creds_Json"))
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open("Aurora Outsourcing").sheet1  # Назва таблиці
+sheet = client.open("Перевірка аутсорс").sheet1  # Назва таблиці
 
 # --- Utils ---
 def proper_case(text):
@@ -124,7 +124,7 @@ async def fallback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- Main ---
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
+    app = ApplicationBuilder().token(os.getenv("Telegram_Token")).build()
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
