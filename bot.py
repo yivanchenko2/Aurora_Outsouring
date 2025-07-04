@@ -91,7 +91,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ENTER_IPN
 
     surname, name, patronymic = context.user_data["name_parts"]
-    birthdate = calculate_birthdate()
+    birthdate = calculate_birthdate(text)
 
     sheet.append_row([
         "", surname, name, patronymic, birthdate, text, "Очікує погодження", "", ""
