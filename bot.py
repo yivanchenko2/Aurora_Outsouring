@@ -1,165 +1,151 @@
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+import os
+import logging
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, Update, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler,
-    ContextTypes, ConversationHandler, filters
+    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
+    MessageHandler, ContextTypes, filters, ConversationHandler
 )
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 
-# --- Google Sheets Setup ---
-SCOPE = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-CREDS = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", SCOPE)
-client = gspread.authorize(CREDS)
+logging.basicConfig(level=logging.INFO)
 
-# 🔽 ВАЖЛИВО: назва таблиці має бути точно такою, як у Google Sheets!
-sheet = client.open("Перевірка аутсорс").sheet1  # ← Заміни назву, якщо у тебе інша
+# --- CONSTANTS ---
+CHOOSING, ENTER_NAME, ENTER_IPN, CHECK_STATUS = range(4)
 
-# --- Стан введення ---
-NAME, ITN, CHECK_ITN = range(3)
+# --- KEYBOARDS ---
+main_keyboard = InlineKeyboardMarkup([
+    [InlineKeyboardButton("➕ Додати працівника", callback_data="add_employee")],
+    [InlineKeyboardButton("📋 Перевірити статус", callback_data="check_status")]
+])
 
-# --- Клавіатури ---
-main_keyboard = ReplyKeyboardMarkup(
-    [["Додати працівника", "Перевірити статус"]],
-    resize_keyboard=True
-)
+cancel_keyboard = ReplyKeyboardMarkup([[KeyboardButton("❌ Скасувати")]], resize_keyboard=True)
 
-cancel_keyboard = ReplyKeyboardMarkup([["Скасувати"]], resize_keyboard=True)
+# --- GOOGLE SHEET SETUP ---
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+client = gspread.authorize(creds)
+sheet = client.open("Aurora Outsourcing").sheet1
 
-# --- Розрахунок дати народження ---
-def calculate_birthdate_from_itn(itn: str) -> str:
-    try:
-        days = int(itn[:5])
-        base_date = datetime(1900, 1, 1)
-        birthdate = base_date + timedelta(days=days - 1)
-        return birthdate.strftime("%d.%m.%Y")
-    except:
-        return ""
+# --- HELPERS ---
+def proper_case(text):
+    return " ".join([w.capitalize() for w in text.split()])
 
-# --- /start команда ---
+def is_valid_ipn(text):
+    return text.isdigit() and len(text) == 10
+
+def calculate_birthdate():
+    today = date.today()
+    birthdate = today - timedelta(days=(18 * 365 + 4))  # 18 років з поправкою
+    return birthdate.strftime("%d.%m.%Y")
+
+# --- HANDLERS ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Оберіть дію:", reply_markup=main_keyboard)
+    await update.message.reply_text(
+        "👋 Привіт! Обери дію:", reply_markup=main_keyboard
+    )
+    return CHOOSING
 
-# --- Обробка вибору з меню ---
-async def handle_menu_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "Додати працівника":
-        await update.message.reply_text("Введіть ПІБ працівника:", reply_markup=cancel_keyboard)
-        return NAME
-    elif text == "Перевірити статус":
-        await update.message.reply_text("Введіть ІПН працівника:", reply_markup=cancel_keyboard)
-        return CHECK_ITN
-    else:
-        await update.message.reply_text("Будь ласка, скористайтесь кнопками нижче ⬇️", reply_markup=main_keyboard)
-        return ConversationHandler.END
+async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-# --- Додавання працівника ---
-async def get_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    full_name = update.message.text.strip()
-    parts = full_name.split()
+    if query.data == "add_employee":
+        await query.edit_message_text("Введіть ПІБ працівника:")
+        return ENTER_NAME
+
+    elif query.data == "check_status":
+        await query.edit_message_text("🧾 Введіть ІПН працівника:")
+        return CHECK_STATUS
+
+async def enter_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    name_raw = update.message.text.strip()
+    if name_raw.lower() == "скасувати":
+        return await cancel(update, context)
+
+    name = proper_case(name_raw)
+    parts = name.split()
 
     if len(parts) != 3:
-        await update.message.reply_text("❌ Введіть ПІБ у форматі: Прізвище Ім’я По батькові (три слова)")
-        await update.message.reply_text("🔄 Наприклад: Іваненко Юрій Юрійович", reply_markup=cancel_keyboard)
-        return NAME
+        await update.message.reply_text("❗ Введіть ПІБ у форматі: Прізвище Ім’я По-батькові")
+        return ENTER_NAME
 
-    # 🔧 Автокорекція: кожне слово — з великої літери
-    surname = parts[0].capitalize()
-    name = parts[1].capitalize()
-    patronymic = parts[2].capitalize()
+    context.user_data["name_parts"] = parts
+    await update.message.reply_text("🔢 Введіть ІПН:", reply_markup=cancel_keyboard)
+    return ENTER_IPN
 
-    context.user_data["surname"] = surname
-    context.user_data["name"] = name
-    context.user_data["patronymic"] = patronymic
+async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ipn = update.message.text.strip()
 
-    await update.message.reply_text(
-        f"Прийнято: {surname} {name} {patronymic}",
-        reply_markup=cancel_keyboard
-    )
-    await update.message.reply_text("Введіть ІПН:")
-    return ITN
+    if ipn.lower() == "скасувати":
+        return await cancel(update, context)
 
+    if not is_valid_ipn(ipn):
+        await update.message.reply_text("❌ ІПН має містити рівно 10 цифр.\n🔁 Введіть ІПН ще раз:")
+        return ENTER_IPN
 
-async def get_itn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    itn = update.message.text.strip()
+    surname, name, middlename = context.user_data["name_parts"]
+    birthdate = calculate_birthdate()
 
-    if not itn.isdigit() or len(itn) != 10:
-        await update.message.reply_text("❌ ІПН має містити рівно 10 цифр.")
-        await update.message.reply_text("🔄 Введіть ІПН ще раз:", reply_markup=cancel_keyboard)
-        return ITN
-
-    context.user_data["itn"] = itn
-
-    birthdate = calculate_birthdate_from_itn(itn)
-
-    # 🔽 Формуємо рядок з пустим значенням для дати народження (колонка №4)
-    values = [[
-        "",
-        context.user_data["surname"],   # A – Прізвище
-        context.user_data["name"],      # B – Ім’я
-        context.user_data["patronymic"],# C – По батькові
-        birthdate,                              # D – Дата народження (залишається формула)
-        context.user_data["itn"],       # E – ІПН
-        "Очікує погодження"              # F – Статус
-    ]]
-
-    sheet.append_rows(values, value_input_option="USER_ENTERED")
+    sheet.append_row([
+        surname, name, middlename, birthdate, ipn, "Очікує погодження", "", ""
+    ])
 
     await update.message.reply_text("✅ Дані працівника збережено!", reply_markup=main_keyboard)
-    return ConversationHandler.END
+    return CHOOSING
 
+async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ipn = update.message.text.strip()
 
-# --- Перевірка статусу ---
-async def check_itn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    itn = update.message.text.strip()
+    if ipn.lower() == "скасувати":
+        return await cancel(update, context)
 
-    if not itn.isdigit() or len(itn) != 10:
-        await update.message.reply_text("❌ ІПН має містити рівно 10 цифр.")
-        await update.message.reply_text("🔄 Введіть ІПН ще раз:", reply_markup=cancel_keyboard)
-        return CHECK_ITN
+    if not is_valid_ipn(ipn):
+        await update.message.reply_text("❌ ІПН має містити рівно 10 цифр.\n🔁 Спробуйте ще раз:")
+        return CHECK_STATUS
 
-    records = sheet.get_all_records()
-    for record in records:
-        if str(record["ІПН"]) == itn:
-            # 🔽 Формуємо відповідь: лише Ім’я + По батькові + Статус
-            first_name = record.get("Імя", "")
-            patronymic = record.get("По батькові", "")
-            status = record.get("Статус", "Невідомо")
+    data = sheet.get_all_records()
+    for row in data:
+        if str(row["ІПН"]) == ipn:
+            result = f'{row["Імя"]} {row["По батькові"]} – {row["Статус"]}'
+            await update.message.reply_text(result, reply_markup=main_keyboard)
+            return CHOOSING
 
-            msg = f"{first_name} {patronymic} – {status}"
-            await update.message.reply_text(msg, reply_markup=main_keyboard)
-            return ConversationHandler.END
+    await update.message.reply_text("🚫 Працівника не знайдено", reply_markup=main_keyboard)
+    return CHOOSING
 
-    await update.message.reply_text("Працівника не знайдено.", reply_markup=main_keyboard)
-    return ConversationHandler.END
-
-
-# --- Скасування ---
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "✅ Операцію скасовано.",
-        reply_markup=main_keyboard  # ← Повертаємо головне меню
-    )
-    return ConversationHandler.END
+    await update.message.reply_text("🔙 Повертаємось в головне меню", reply_markup=main_keyboard)
+    return CHOOSING
 
-# --- Основний запуск ---
+async def fallback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Не розумію... Виберіть опцію з меню ⬇️")
+    return CHOOSING
+
+# --- MAIN ---
 if __name__ == '__main__':
-    app = ApplicationBuilder().token("8098286591:AAG2XUsSdmvmKDfIR3Ff6Vwn3CfqeFZABfo").build()
+    app = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
-    conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_choice)],
+    conv = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
         states={
-            NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_name)],
-            ITN: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_itn)],
-            CHECK_ITN: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_itn)],
+            CHOOSING: [
+                CallbackQueryHandler(button_click)
+            ],
+            ENTER_NAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)
+            ],
+            ENTER_IPN: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)
+            ],
+            CHECK_STATUS: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)
+            ]
         },
-        fallbacks=[
-            CommandHandler("cancel", cancel),
-            MessageHandler(filters.Regex("^Скасувати$"), cancel)
-        ]
+        fallbacks=[MessageHandler(filters.TEXT, fallback)],
+        allow_reentry=True
     )
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(conv_handler)
-
+    app.add_handler(conv)
     app.run_polling()
