@@ -44,11 +44,11 @@ def proper_case(text):
 def is_valid_ipn(text):
     return text.isdigit() and len(text) == 10
 
-def calculate_birthdate(ipn:str)->str:
+def calculate_birthdate(ipn: str) -> str:
     try:
-        basedate = date(1900,1,1)
+        basedate = date(1900, 1, 1)
         days = int(ipn[:5])
-        birthdate = basedate + timedelta(days=days - 1 )
+        birthdate = basedate + timedelta(days=days - 1)
         return birthdate.strftime("%d.%m.%Y")
     except:
         return ""
@@ -81,12 +81,13 @@ async def enter_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text.lower() == "скасувати":
         return await cancel(update, context)
 
-    parts = proper_case(text).split()
+    full_name = proper_case(text)
+    parts = full_name.split()
     if len(parts) != 3:
         await update.message.reply_text("❗ Введіть ПІБ у форматі: Прізвище Імʼя По-батькові")
         return ENTER_NAME
 
-    context.user_data["name_parts"] = parts
+    context.user_data["full_name"] = full_name
     await update.message.reply_text("🔢 Введіть ІПН (10 цифр):", reply_markup=cancel_keyboard)
     return ENTER_IPN
 
@@ -99,7 +100,6 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ ІПН має містити рівно 10 цифр. Спробуйте ще раз:")
         return ENTER_IPN
 
-    # Перевірка дубліката
     ipn = text
     data = sheet.get_all_records()
     for row in data:
@@ -107,11 +107,12 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("🚫 Працівника з таким ІПН вже додано. Спробуйте ще раз або перевірте статус.", reply_markup=main_keyboard)
             return CHOOSING
 
-    surname, name, patronymic = context.user_data["name_parts"]
+    full_name = context.user_data["full_name"]
+    parts = full_name.split()
     birthdate = calculate_birthdate(ipn)
 
     sheet.append_row([
-        "", surname, name, patronymic, birthdate, ipn, "Очікує погодження", "", ""
+        "", full_name, "", "", birthdate, ipn, "Очікує погодження", "", ""
     ])
 
     await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
@@ -129,7 +130,12 @@ async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = sheet.get_all_records()
     for row in data:
         if str(row["ІПН"]) == text:
-            result = f'{row["Імя"]} {row["По батькові"]} – {row["Статус"]}'
+            pib = row.get("ПІБ", "").split()
+            if len(pib) >= 3:
+                name_patronymic = f"{pib[1]} {pib[2]}"
+            else:
+                name_patronymic = row.get("ПІБ", "")
+            result = f'{name_patronymic} – {row["Статус"]}'
             await update.message.reply_text(result, reply_markup=main_keyboard)
             return CHOOSING
 
@@ -149,30 +155,30 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(os.getenv("Telegram_Token")).build()
 
     conv = ConversationHandler(
-    entry_points=[CommandHandler("start", start)],
-    states={
-        CHOOSING: [
-            MessageHandler(filters.Regex("^(➕ Додати працівника)$"), start_add),
-            MessageHandler(filters.Regex("^(📋 Перевірити статус)$"), start_check),
-            MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel)
+        entry_points=[CommandHandler("start", start)],
+        states={
+            CHOOSING: [
+                MessageHandler(filters.Regex("^(➕ Додати працівника)$"), start_add),
+                MessageHandler(filters.Regex("^(📋 Перевірити статус)$"), start_check),
+                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel)
+            ],
+            ENTER_NAME: [
+                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)
+            ],
+            ENTER_IPN: [
+                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)
+            ],
+            CHECK_STATUS: [
+                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)
+            ],
+        },
+        fallbacks=[
+            MessageHandler(filters.Regex("^(❌ Скасувати|Скасувати)$"), cancel)
         ],
-        ENTER_NAME: [
-            MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)
-        ],
-        ENTER_IPN: [
-            MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)
-        ],
-        CHECK_STATUS: [
-            MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)
-        ],
-    },
-    fallbacks=[
-        MessageHandler(filters.Regex("^(❌ Скасувати|Скасувати)$"), cancel)
-    ],
-    allow_reentry=True
+        allow_reentry=True
     )
 
     app.add_handler(conv)
