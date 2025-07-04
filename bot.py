@@ -132,26 +132,30 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(os.getenv("Telegram_Token")).build()
 
     conv = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            CHOOSING: [
-                MessageHandler(filters.Regex("^(➕ Додати працівника)$"), start_add),
-                MessageHandler(filters.Regex("^(📋 Перевірити статус)$"), start_check),
-                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel)
-            ],
-            ENTER_NAME: [
-                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)
-            ],
-            ENTER_IPN: [
-                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)
-            ],
-            CHECK_STATUS: [
-                MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)
-            ],
-        },
+    entry_points=[CommandHandler("start", start)],
+    states={
+        CHOOSING: [
+            MessageHandler(filters.Regex("^(➕ Додати працівника)$"), start_add),
+            MessageHandler(filters.Regex("^(📋 Перевірити статус)$"), start_check),
+            MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel)
+        ],
+        ENTER_NAME: [
+            MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)
+        ],
+        ENTER_IPN: [
+            MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)
+        ],
+        CHECK_STATUS: [
+            MessageHandler(filters.Regex("^(❌ Скасувати)$"), cancel),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)
+        ],
+    },
+    fallbacks=[
+        MessageHandler(filters.Regex("^(❌ Скасувати|Скасувати)$"), cancel)
+    ],
+    allow_reentry=True
     )
 
     app.add_handler(conv)
