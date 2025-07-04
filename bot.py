@@ -89,7 +89,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthdate = calculate_birthdate()
 
     sheet.append_row([
-        surname, name, patronymic, birthdate, text, "Очікує погодження", "", ""
+        "",surname, name, patronymic, birthdate, text, "Очікує погодження", "", ""
     ])
 
     await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
