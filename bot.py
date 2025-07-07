@@ -83,7 +83,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(f"📋 ПІБ: {surname} {name} {patronymic}, ДН: {birthdate}")
 
     try:
-        row = ["", surname, name, patronymic, birthdate, text, "Очікує погодження", "", ""]
+        row = ["", surname, name, patronymic, birthdate, text, "Очікує погодження", "Оберіть перевіряючого", ""]
         logging.info(f"📝 Додаємо рядок: {row}")
 
         sheet.append_row(row)
