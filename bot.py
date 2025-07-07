@@ -67,7 +67,6 @@ async def enter_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
-
     if text.lower() == "скасувати":
         return await cancel(update, context)
 
@@ -75,28 +74,41 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ ІПН має містити рівно 10 цифр. Спробуйте ще раз:")
         return ENTER_IPN
 
-    surname, name, patronymic = context.user_data["name_parts"]
-    birthdate = calculate_birthdate(text)
+    ipn = text
+    context.user_data["ipn"] = ipn
 
-    # Додаткове логування
-    logging.info(f"📥 Отримано ІПН: {text}")
-    logging.info(f"📋 ПІБ: {surname} {name} {patronymic}, ДН: {birthdate}")
+    # Перевірка дубліката
+    try:
+        data = sheet.get_all_records(expected_headers=[
+            "Дата", "Прізвище", "Імя", "По батькові",
+            "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"
+        ])
+    except Exception as e:
+        logging.error(f"Помилка зчитування таблиці: {e}")
+        await update.message.reply_text("⚠️ Не вдалося перевірити таблицю. Спробуйте пізніше.", reply_markup=main_keyboard)
+        return CHOOSING
+
+    for row in data:
+        if str(row.get("ІПН")) == ipn:
+            await update.message.reply_text("🚫 Працівник з таким ІПН вже існує. Спробуйте інший або перевірте статус.", reply_markup=main_keyboard)
+            return CHOOSING
+
+    # Отримання інших даних
+    surname, name, patronymic = context.user_data["name_parts"]
+    birthdate = calculate_birthdate(ipn)
+
+    new_row = ["", surname, name, patronymic, birthdate, ipn, "Очікує погодження", "", ""]
 
     try:
-        row = ["", surname, name, patronymic, birthdate, text, "Очікує погодження", "Оберіть перевіряючого", ""]
-        logging.info(f"📝 Додаємо рядок: {row}")
-
-        sheet.append_row(row)
+        logging.info(f"📝 Додаємо рядок: {new_row}")
+        sheet.append_row(new_row)
         logging.info("✅ Рядок успішно додано до Google Таблиці.")
-
         await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
-
     except Exception as e:
-        logging.error(f"❌ Помилка при додаванні рядка: {e}")
-        await update.message.reply_text("⚠️ Виникла помилка при додаванні до таблиці.", reply_markup=main_keyboard)
+        logging.error(f"❌ Помилка при додаванні до таблиці: {e}")
+        await update.message.reply_text("⚠️ Не вдалося додати до таблиці. Спробуйте пізніше.", reply_markup=main_keyboard)
 
     return CHOOSING
-
 
 async def start_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть ІПН працівника:", reply_markup=cancel_keyboard)
