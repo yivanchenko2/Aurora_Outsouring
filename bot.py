@@ -66,30 +66,37 @@ async def enter_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ENTER_IPN
 
 async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    ipn = update.message.text.strip()
-    if not is_valid_ipn(ipn):
-        await update.message.reply_text("❗ ІПН має містити 10 цифр.")
+    text = update.message.text.strip()
+
+    if text.lower() == "скасувати":
+        return await cancel(update, context)
+
+    if not is_valid_ipn(text):
+        await update.message.reply_text("❌ ІПН має містити рівно 10 цифр. Спробуйте ще раз:")
         return ENTER_IPN
 
-    data = sheet.get_all_records(expected_headers=[
-        "Дата", "Прізвище", "Імя", "По батькові",
-        "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"
-    ])
-
-    if any(str(row["ІПН"]) == ipn for row in data):
-        await update.message.reply_text("🚫 Працівника з таким ІПН вже додано.", reply_markup=main_keyboard)
-        return CHOOSING
-
     surname, name, patronymic = context.user_data["name_parts"]
-    birthdate = calculate_birthdate(ipn)
+    birthdate = calculate_birthdate(text)
+
+    # Додаткове логування
+    logging.info(f"📥 Отримано ІПН: {text}")
+    logging.info(f"📋 ПІБ: {surname} {name} {patronymic}, ДН: {birthdate}")
 
     try:
-        sheet.append_row(["", surname, name, patronymic, birthdate, ipn, "Очікує погодження", "", ""])
+        row = ["", surname, name, patronymic, birthdate, text, "Очікує погодження", "", ""]
+        logging.info(f"📝 Додаємо рядок: {row}")
+
+        sheet.append_row(row)
+        logging.info("✅ Рядок успішно додано до Google Таблиці.")
+
         await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
+
     except Exception as e:
-        await update.message.reply_text("⚠️ Помилка при додаванні до таблиці.", reply_markup=main_keyboard)
-        logging.error(e)
+        logging.error(f"❌ Помилка при додаванні рядка: {e}")
+        await update.message.reply_text("⚠️ Виникла помилка при додаванні до таблиці.", reply_markup=main_keyboard)
+
     return CHOOSING
+
 
 async def start_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть ІПН працівника:", reply_markup=cancel_keyboard)
