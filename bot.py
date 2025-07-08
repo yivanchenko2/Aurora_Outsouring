@@ -29,7 +29,7 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 creds_dict = json.loads(os.getenv("Google_Creds_Json"))
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open("Перевірка аутсорс").sheet1
+sheet = client.open("Перевірка аутсорс").worksheet("Кандидати")
 
 def is_valid_ipn(text):
     return text.isdigit() and len(text) == 10
