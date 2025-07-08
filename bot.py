@@ -114,20 +114,39 @@ async def start_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть ІПН працівника:", reply_markup=cancel_keyboard)
     return CHECK_STATUS
 
+# 👇 Допоміжна функція для нормалізації ІПН
+def normalize_ipn(ipn):
+    return str(ipn).strip().zfill(10)  # гарантує довжину 10 символів з початковими нулями
+
+# 🔍 Основна функція перевірки ІПН
 async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    ipn = update.message.text.strip()
-    if not is_valid_ipn(ipn):
-        await update.message.reply_text("❗ ІПН має містити 10 цифр.")
+    text = update.message.text.strip()
+    if text.lower() == "скасувати":
+        return await cancel(update, context)
+
+    if not is_valid_ipn(text):
+        await update.message.reply_text("❌ ІПН має містити 10 цифр. Спробуйте ще раз:")
         return CHECK_STATUS
 
-    data = sheet.get_all_records(expected_headers=[
-        "Дата", "Прізвище", "Імя", "По батькові",
-        "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"
-    ])
+    try:
+        data = sheet.get_all_records()
+    except Exception as e:
+        logging.error(f"Помилка при зчитуванні таблиці: {e}")
+        await update.message.reply_text("⚠️ Помилка при зчитуванні таблиці.")
+        return CHOOSING
+
+    input_ipn = normalize_ipn(text)
 
     for row in data:
-        if str(row["ІПН"]) == ipn:
-            await update.message.reply_text(f'{row["Імя"]} {row["По батькові"]} — {row["Статус"]}', reply_markup=main_keyboard)
+        row_ipn = normalize_ipn(row.get("ІПН", ""))
+        if row_ipn == input_ipn:
+            # Збираємо ПІБ та статус
+            first_name = row.get("Імя", "")
+            patronymic = row.get("По батькові", "")
+            status = row.get("Статус", "Невідомо")
+
+            result = f"{first_name} {patronymic} – {status}"
+            await update.message.reply_text(result, reply_markup=main_keyboard)
             return CHOOSING
 
     await update.message.reply_text("🚫 Працівника не знайдено", reply_markup=main_keyboard)
