@@ -168,4 +168,13 @@ if __name__ == "__main__":
     )
     
     app.add_handler(conv)
+
+    # Тестовий рядок перед запуском бота
+    try:
+        test_row = ["Тест", "Прізвище", "Імʼя", "По-батькові", "01.01.1990", "1111111111", "Очікує", "", ""]
+        sheet.append_row(test_row)
+        logging.info("✅ Тестовий рядок успішно додано до таблиці.")
+    except Exception as e:
+        logging.error(f"❌ Не вдалося додати тестовий рядок: {e}")
+
     app.run_polling()
