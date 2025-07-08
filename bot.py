@@ -81,7 +81,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         data = sheet.get_all_records(expected_headers=[
             "Дата", "Прізвище", "Імя", "По батькові",
-            "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар",""
+            "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"
         ])
     except Exception as e:
         logging.error(f"Помилка зчитування таблиці: {e}")
@@ -97,7 +97,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     surname, name, patronymic = context.user_data["name_parts"]
     birthdate = calculate_birthdate(ipn)
 
-    new_row = ["", surname, name, patronymic, birthdate, ipn, "Очікує погодження", "", "",""]
+    new_row = ["", surname, name, patronymic, birthdate, ipn, "Очікує погодження", "", ""]
 
     try:
         logging.info(f"📝 Додаємо рядок: {new_row}")
