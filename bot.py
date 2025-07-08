@@ -81,7 +81,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         data = sheet.get_all_records(expected_headers=[
             "Дата", "Прізвище", "Імя", "По батькові",
-            "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"
+            "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар",""
         ])
     except Exception as e:
         logging.error(f"Помилка зчитування таблиці: {e}")
