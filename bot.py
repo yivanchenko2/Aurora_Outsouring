@@ -74,24 +74,24 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ ІПН має містити рівно 10 цифр. Спробуйте ще раз:")
         return ENTER_IPN
 
-    surname, name, patronymic = context.user_data["name_parts"]
-    birthdate = calculate_birthdate(text)
+    ipn = text
+    context.user_data["ipn"] = ipn
 
-    row_data = ["", surname, name, patronymic, birthdate, text, "Очікує погодження", "", ""]
-
-    # ✅ Знаходимо перший повністю порожній рядок по колонці A
+    # Перевірка дубліката
     try:
-        values = sheet.col_values(1)  # Колонка A (Дата)
-        next_row = len(values) + 1
-
-        sheet.insert_row(row_data, index=next_row)
-        logging.info("✅ Дані успішно вставлені в рядок %s", next_row)
-        await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
+        data = sheet.get_all_records(expected_headers=[
+            "Дата", "Прізвище", "Імя", "По батькові",
+            "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"
+        ])
     except Exception as e:
-        logging.error(f"❌ Помилка вставлення даних: {e}")
-        await update.message.reply_text("⚠️ Виникла помилка при додаванні до таблиці.", reply_markup=main_keyboard)
+        logging.error(f"Помилка зчитування таблиці: {e}")
+        await update.message.reply_text("⚠️ Не вдалося перевірити таблицю. Спробуйте пізніше.", reply_markup=main_keyboard)
+        return CHOOSING
 
-    return CHOOSING
+    for row in data:
+        if str(row.get("ІПН")) == ipn:
+            await update.message.reply_text("🚫 Працівник з таким ІПН вже існує. Спробуйте інший або перевірте статус.", reply_markup=main_keyboard)
+            return CHOOSING
 
     # Отримання інших даних
     surname, name, patronymic = context.user_data["name_parts"]
