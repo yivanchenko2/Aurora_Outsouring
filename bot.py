@@ -31,6 +31,8 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 sheet = client.open("Перевірка аутсорс").worksheet("Кандидати")
 
+HEADERS = ["Дата", "ПІБ", "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"]
+
 def is_valid_ipn(text):
     return text.isdigit() and len(text) == 10
 
@@ -43,6 +45,9 @@ def calculate_birthdate(ipn):
         return (base + timedelta(days=int(ipn[:5]) - 1)).strftime("%d.%m.%Y")
     except:
         return ""
+
+def normalize_ipn(ipn):
+    return str(ipn).strip().zfill(10)
 
 # --- Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -57,12 +62,16 @@ async def start_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ENTER_NAME
 
 async def enter_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    parts = proper_case(update.message.text.strip()).split()
-    if len(parts) != 3:
-        await update.message.reply_text("❗ Формат: Прізвище Імʼя По батькові")
+    text = update.message.text.strip()
+    if text.lower() == "скасувати":
+        return await cancel(update, context)
+
+    if len(text.split()) < 2:
+        await update.message.reply_text("❗ Введіть ПІБ у форматі: Прізвище Ім’я По-батькові")
         return ENTER_NAME
-    context.user_data["name_parts"] = parts
-    await update.message.reply_text("🔢 Введіть ІПН (10 цифр):")
+
+    context.user_data["pib"] = proper_case(text)
+    await update.message.reply_text("🔢 Введіть ІПН (10 цифр):", reply_markup=cancel_keyboard)
     return ENTER_IPN
 
 async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -77,27 +86,21 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ipn = text
     context.user_data["ipn"] = ipn
 
-    # Перевірка дубліката
     try:
-        data = sheet.get_all_records(expected_headers=[
-            "Дата", "Прізвище", "Імя", "По батькові",
-            "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"
-        ])
+        data = sheet.get_all_records(expected_headers=HEADERS)
     except Exception as e:
         logging.error(f"Помилка зчитування таблиці: {e}")
         await update.message.reply_text("⚠️ Не вдалося перевірити таблицю. Спробуйте пізніше.", reply_markup=main_keyboard)
         return CHOOSING
 
     for row in data:
-        if str(row.get("ІПН")) == ipn:
+        if normalize_ipn(row.get("ІПН")) == normalize_ipn(ipn):
             await update.message.reply_text("🚫 Працівник з таким ІПН вже існує. Спробуйте інший або перевірте статус.", reply_markup=main_keyboard)
             return CHOOSING
 
-    # Отримання інших даних
-    surname, name, patronymic = context.user_data["name_parts"]
     birthdate = calculate_birthdate(ipn)
-
-    new_row = ["", surname, name, patronymic, birthdate, ipn, "Очікує погодження", "", ""]
+    full_name = context.user_data["pib"]
+    new_row = ["", full_name, birthdate, ipn, "Очікує погодження", "", ""]
 
     try:
         logging.info(f"📝 Додаємо рядок: {new_row}")
@@ -114,11 +117,6 @@ async def start_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔎 Введіть ІПН працівника:", reply_markup=cancel_keyboard)
     return CHECK_STATUS
 
-# 👇 Допоміжна функція для нормалізації ІПН
-def normalize_ipn(ipn):
-    return str(ipn).strip().zfill(10)  # гарантує довжину 10 символів з початковими нулями
-
-# 🔍 Основна функція перевірки ІПН
 async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text.lower() == "скасувати":
@@ -129,7 +127,7 @@ async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHECK_STATUS
 
     try:
-        data = sheet.get_all_records()
+        data = sheet.get_all_records(expected_headers=HEADERS)
     except Exception as e:
         logging.error(f"Помилка при зчитуванні таблиці: {e}")
         await update.message.reply_text("⚠️ Помилка при зчитуванні таблиці.")
@@ -138,14 +136,10 @@ async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     input_ipn = normalize_ipn(text)
 
     for row in data:
-        row_ipn = normalize_ipn(row.get("ІПН", ""))
-        if row_ipn == input_ipn:
-            # Збираємо ПІБ та статус
-            first_name = row.get("Імя", "")
-            patronymic = row.get("По батькові", "")
+        if normalize_ipn(row.get("ІПН")) == input_ipn:
+            pib = row.get("ПІБ", "")
             status = row.get("Статус", "Невідомо")
-
-            result = f"{first_name} {patronymic} – {status}"
+            result = f"{pib} – {status}"
             await update.message.reply_text(result, reply_markup=main_keyboard)
             return CHOOSING
 
@@ -156,9 +150,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔙 Скасовано.", reply_markup=main_keyboard)
     return CHOOSING
 
-# --- Start app ---
+# --- Main ---
 if __name__ == "__main__":
     app = ApplicationBuilder().token(os.getenv("Telegram_Token")).build()
+
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -185,15 +180,6 @@ if __name__ == "__main__":
         ],
         allow_reentry=True
     )
-    
+
     app.add_handler(conv)
-
-    # Тестовий рядок перед запуском бота
-    try:
-        test_row = ["Тест", "Прізвище", "Імʼя", "По-батькові", "01.01.1990", "1111111111", "Очікує", "", ""]
-        sheet.append_row(test_row)
-        logging.info("✅ Тестовий рядок успішно додано до таблиці.")
-    except Exception as e:
-        logging.error(f"❌ Не вдалося додати тестовий рядок: {e}")
-
     app.run_polling()
