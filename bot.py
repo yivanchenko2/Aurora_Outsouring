@@ -129,29 +129,36 @@ async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text.lower() == "скасувати":
         return await cancel(update, context)
 
-    if not is_valid_ipn(text):
-        await update.message.reply_text("❌ ІПН має містити 10 цифр. Спробуйте ще раз:")
+    ipns = text.split()
+    if not all(ipn.isdigit() and len(ipn) == 10 for ipn in ipns):
+        await update.message.reply_text("❌ Кожен ІПН має містити рівно 10 цифр. Введіть один або кілька ІПН через пробіл:")
         return CHECK_STATUS
 
     try:
-        data = sheet.get_all_records(expected_headers=HEADERS)
+        data = sheet.get_all_records()
     except Exception as e:
         logging.error(f"Помилка при зчитуванні таблиці: {e}")
         await update.message.reply_text("⚠️ Помилка при зчитуванні таблиці.")
         return CHOOSING
 
-    input_ipn = normalize_ipn(text)
+    response_lines = []
 
-    for row in data:
-        if normalize_ipn(row.get("ІПН")) == input_ipn:
-            pib = row.get("ПІБ", "")
-            status = row.get("Статус", "Невідомо")
-            result = f"{pib} – {status}"
-            await update.message.reply_text(result, reply_markup=main_keyboard)
-            return CHOOSING
+    for ipn in ipns:
+        found = False
+        for row in data:
+            row_ipn = str(row.get("ІПН", "")).zfill(10)
+            if row_ipn == ipn:
+                pib = row.get("ПІБ") or f'{row.get("Імя", "")} {row.get("По батькові", "")}'.strip()
+                status = row.get("Статус", "Невідомо")
+                response_lines.append(f"{ipn} – {pib} – {status}")
+                found = True
+                break
+        if not found:
+            response_lines.append(f"{ipn} – ❌ Не знайдено")
 
-    await update.message.reply_text("🚫 Працівника не знайдено", reply_markup=main_keyboard)
+    await update.message.reply_text("\n".join(response_lines), reply_markup=main_keyboard)
     return CHOOSING
+
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔙 Скасовано.", reply_markup=main_keyboard)
