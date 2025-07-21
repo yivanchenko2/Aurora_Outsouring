@@ -107,6 +107,13 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sheet.append_row(new_row)
         logging.info("✅ Рядок успішно додано до Google Таблиці.")
         await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
+        try:
+            senders_sheet = client.open("Перевірка аутсорс").worksheet("Відправники")
+            telegram_id = str(update.effective_user.id)
+            senders_sheet.append_row([ipn, telegram_id])
+            logging.info(f"✅ Telegram ID {telegram_id} збережено для ІПН {ipn}")
+        except Exception as e:
+            logging.error(f"❌ Не вдалося записати Telegram ID: {e}")
     except Exception as e:
         logging.error(f"❌ Помилка при додаванні до таблиці: {e}")
         await update.message.reply_text("⚠️ Не вдалося додати до таблиці. Спробуйте пізніше.", reply_markup=main_keyboard)
