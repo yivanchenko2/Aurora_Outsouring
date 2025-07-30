@@ -72,7 +72,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return CHOOSING
 
 async def start_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✍️ Введіть ПІБ працівника:", reply_markup=cancel_keyboard)
+    await update.message.reply_text("✍️ Введіть ПІБ працівника у форматі: Прізвище Ім’я По-батькові):", reply_markup=cancel_keyboard)
     return ENTER_NAME
 
 async def enter_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -85,7 +85,7 @@ async def enter_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ENTER_NAME
 
     context.user_data["pib"] = proper_case(text)
-    await update.message.reply_text("🔢 Введіть ІПН (10 цифр):", reply_markup=cancel_keyboard)
+    await update.message.reply_text("🔢 Введіть ІПН (10 цифр без пробілів та інших знаків):", reply_markup=cancel_keyboard)
     return ENTER_IPN
 
 async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
