@@ -1,7 +1,7 @@
 import os
 import json
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
@@ -114,7 +114,8 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     birthdate = calculate_birthdate(ipn)
     full_name = context.user_data["pib"]
-    new_row = ["", full_name, birthdate, ipn, "Очікує погодження", "", ""]
+    current_date = datetime.today().strftime("%d.%m.%Y")
+    new_row = [current_date, full_name, birthdate, ipn, "Очікує погодження", "", "",""]
 
     try:
         logging.info(f"📝 Додаємо рядок: {new_row}")
