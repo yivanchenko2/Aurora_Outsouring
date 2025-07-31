@@ -114,7 +114,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     birthdate = calculate_birthdate(ipn)
     full_name = context.user_data["pib"]
-    current_date = datetime.today().strftime("%d.%m.%Y")
+    current_date = datetime.today().strftime("%d.%m.%y")
     new_row = [current_date, full_name, birthdate, ipn, "Очікує погодження", "", "",""]
 
     try:
