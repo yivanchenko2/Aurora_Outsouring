@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from datetime import date, datetime, timedelta
+
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
@@ -9,30 +10,19 @@ from telegram.ext import (
 )
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from analytics_menu import analytics_handlers
 
-# Logging
+# === Логування ===
 logging.basicConfig(level=logging.INFO)
 
+# === Доступ до аналітики ===
 ANALYTICS_USERS = [7555663197]
-CHOOSING, ENTER_NAME, ENTER_IPN, CHECK_STATUS = range(4)
+def is_analytics_user(user_id):
+    return user_id in ANALYTICS_USERS
 
-ANALYTICS_MENU = ReplyKeyboardMarkup([
-    ["🔍 Перевірити за датою"],
-    ["📊 Статистика"],
-    ["⬅️ Назад"]
-], resize_keyboard=True)
-
-STATISTICS_MENU = ReplyKeyboardMarkup([
-    ["📅 За період", "📆 Стандарт"],
-    ["⬅️ Назад"]
-], resize_keyboard=True)
-
-cancel_keyboard = ReplyKeyboardMarkup([
-    ["❌ Скасувати"]
-], resize_keyboard=True)
-
+# === Клавіатура головного меню ===
 def get_main_keyboard(user_id):
-    if user_id in ANALYTICS_USERS:
+    if is_analytics_user(user_id):
         return ReplyKeyboardMarkup([
             ["➕ Додати працівника"],
             ["📋 Перевірити статус"],
@@ -43,14 +33,24 @@ def get_main_keyboard(user_id):
         ["📋 Перевірити статус"]
     ], resize_keyboard=True)
 
-# GSpread auth
+# === Стани розмов
+CHOOSING, ENTER_NAME, ENTER_IPN, CHECK_STATUS = range(4)
+
+# GSpread авторизація
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds_dict = json.loads(os.getenv("Google_Creds_Json"))
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open("Перевірка аутсорс").worksheet("Кандидати")
+sheet = client.open("Перевірка аутсорс").worksheet("Кандидати")\
+
+__all__ = ["client","sheet"]
 
 HEADERS = ["Дата", "ПІБ", "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"]
+
+# === Утиліти ===
+cancel_keyboard = ReplyKeyboardMarkup([
+    ["❌ Скасувати"]
+], resize_keyboard=True)
 
 def is_valid_ipn(text):
     return text.isdigit() and len(text) == 10
@@ -231,4 +231,7 @@ if __name__ == "__main__":
     )
 
     app.add_handler(conv)
+    for handler in analytics_handlers:
+        app.add_handler(handler)
+        
     app.run_polling()
