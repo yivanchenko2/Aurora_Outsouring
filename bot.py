@@ -13,16 +13,35 @@ from oauth2client.service_account import ServiceAccountCredentials
 # Logging
 logging.basicConfig(level=logging.INFO)
 
+ANALYTICS_USERS = [7555663197]
 CHOOSING, ENTER_NAME, ENTER_IPN, CHECK_STATUS = range(4)
 
-main_keyboard = ReplyKeyboardMarkup([
-    ["➕ Додати працівника"],
-    ["📋 Перевірити статус"]
+ANALYTICS_MENU = ReplyKeyboardMarkup([
+    ["🔍 Перевірити за датою"],
+    ["📊 Статистика"],
+    ["⬅️ Назад"]
+], resize_keyboard=True)
+
+STATISTICS_MENU = ReplyKeyboardMarkup([
+    ["📅 За період", "📆 Стандарт"],
+    ["⬅️ Назад"]
 ], resize_keyboard=True)
 
 cancel_keyboard = ReplyKeyboardMarkup([
     ["❌ Скасувати"]
 ], resize_keyboard=True)
+
+def get_main_keyboard(user_id):
+    if user_id in ANALYTICS_USERS:
+        return ReplyKeyboardMarkup([
+            ["➕ Додати працівника"],
+            ["📋 Перевірити статус"],
+            ["📊 Аналітика"]
+        ], resize_keyboard=True)
+    return ReplyKeyboardMarkup([
+        ["➕ Додати працівника"],
+        ["📋 Перевірити статус"]
+    ], resize_keyboard=True)
 
 # GSpread auth
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
