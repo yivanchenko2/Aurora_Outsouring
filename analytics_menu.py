@@ -125,11 +125,11 @@ async def show_statistics_period(update,context):
     
     return await analytics_back(update,context)
 
-async def sgow_standart_statistics(update,context):
+async def show_standard_statistics(update, context):
     today = datetime.today()
-    #Вчора пропускаючи сб та нд
     weekday = today.weekday()
 
+    # Обчислення вчорашнього дня з урахуванням вихідних
     if weekday == 0:
         yesterday = today - timedelta(days=3)
     elif weekday == 6:
@@ -137,52 +137,65 @@ async def sgow_standart_statistics(update,context):
     else:
         yesterday = today - timedelta(days=1)
 
-    def get_status_for_date(date_obj):
+    def get_stats_for_check_date(date_obj):
         formatted = date_obj.strftime("%d.%m.%y")
-        total = checked = positive = negative = 0
+        total = checked = approved = rejected = 0
         try:
             records = sheet.get_all_records()
             for row in records:
-                if row.get("Дата") == formatted:
-                    total += 1
-                    status = row.get("Статус","").strip()
-                    if status != "Очікує погодження":
-                        checked += 1
-                    elif status == "✅ Погоджено":
-                        positive += 1
-                    elif status == "❌ Не погоджено":
-                        negative += 1
+                check_date = row.get("Дата перевірки", "").strip()
+                if check_date == formatted:
+                    checked += 1
+                    status = row.get("Статус", "").strip()
+                    if status == "Погоджено":
+                        approved += 1
+                    elif status == "Не погоджено":
+                        rejected += 1
         except Exception as e:
-            print(f"Помилка читання даних: {e}")
-        return formatted,total,checked,positive,negative
-    
+            print(f"Помилка читання: {e}")
+        return formatted, checked, approved, rejected
+
+    def get_submitted_for_date(date_obj):
+        formatted = date_obj.strftime("%d.%m.%y")
+        try:
+            return sum(1 for row in sheet.get_all_records() if row.get("Дата", "").strip() == formatted)
+        except:
+            return 0
+
     def count_pending():
         try:
-            return sum(1 for row in sheet.get_all_records() if row.get("Статус","").strip()=="Очікує погодження")
-        except Exception as e:
-            print(f"Помилка при підрахунку очікуючих: {e}")
+            return sum(1 for row in sheet.get_all_records() if row.get("Статус", "").strip() == "Очікує погодження")
+        except:
             return 0
-        
-    today_str,t_total,t_checked,t_pos,t_neg = get_status_for_date(today)
-    yest_str,y_total,y_checked,y_pos,y_neg = get_status_for_date(yesterday)
+
+    # Збір статистики
+    t_date_str = today.strftime("%d.%m.%y")
+    y_date_str = yesterday.strftime("%d.%m.%y")
+
+    t_submitted = get_submitted_for_date(today)
+    y_submitted = get_submitted_for_date(yesterday)
+
+    _, t_checked, t_approved, t_rejected = get_stats_for_check_date(today)
+    _, y_checked, y_approved, y_rejected = get_stats_for_check_date(yesterday)
+
     pending_total = count_pending()
 
+    # Повідомлення
     text = (
-        f"📆 *Статистика за сьогодні* ({today_str}):\n"
-        f"• Подано: {t_total}\n"
+        f"📆 *Статистика за сьогодні* ({t_date_str}):\n"
+        f"• Подано: {t_submitted}\n"
         f"• Перевірено: {t_checked}\n"
-        f"• ✅ Позитивно: {t_pos}\n"
-        f"• ❌ Негативно: {t_neg}\n\n"
-        f"📅 *Статистика за вчора* ({yest_str}):\n"
-        f"• Подано: {y_total}\n"
+        f"• ✅ Погоджено: {t_approved}\n"
+        f"• ❌ Не погоджено: {t_rejected}\n\n"
+        f"📅 *Статистика за вчора* ({y_date_str}):\n"
+        f"• Подано: {y_submitted}\n"
         f"• Перевірено: {y_checked}\n"
-        f"• ✅ Позитивно: {y_pos}\n"
-        f"• ❌ Негативно: {y_neg}\n"
-        f"\n"
+        f"• ✅ Погоджено: {y_approved}\n"
+        f"• ❌ Не погоджено: {y_rejected}\n\n"
         f"⏳ *Очікує погодження зараз:* {pending_total}"
     )
 
-    await update.message.reply_text(text,parse_mode = "Markdown")
+    await update.message.reply_text(text, parse_mode="Markdown")
     return STATISTICS_MENU
                         
 
@@ -208,7 +221,7 @@ analytics_conv = ConversationHandler(
         ],
         STATISTICS_MENU: [
             MessageHandler(filters.Regex("^📅 За період$"),ask_period_start),
-            MessageHandler(filters.Regex("^📆 Стандарт$"), sgow_standart_statistics),
+            MessageHandler(filters.Regex("^📆 Стандарт$"), show_standard_statistics),
             MessageHandler(filters.Regex("^⬅️ Назад$"), analytics_back),
         ],
         STATISTICS_PERIOD_START: [
