@@ -105,9 +105,9 @@ async def show_statistics_period(update,context):
                 status = row.get("Статус", "").lower()
                 if status != "очікує погодження":
                     checked += 1
-                    if "погоджено" in status:
+                    if "✅ погоджено" in status:
                         positive += 1
-                    elif "не погоджено" in status:
+                    elif "❌ не погоджено" in status:
                         negative += 1
 
         text = (
