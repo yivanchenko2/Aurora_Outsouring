@@ -13,7 +13,8 @@ analytics_keyboard = ReplyKeyboardMarkup([
 ], resize_keyboard=True)
 
 statistics_keyboard = ReplyKeyboardMarkup([
-    ["📅 За період", "📆 Стандарт"],
+    ["📅 За період", "📆 Сьогодні/вчора"],
+    ["📈 Загальна статистика"],
     ["⬅️ Назад"]
 ], resize_keyboard=True)
 
@@ -190,6 +191,33 @@ async def show_standard_statistics(update, context):
     await update.message.reply_text(text, parse_mode="Markdown")
     return STATISTICS_MENU
 
+async def show_overall_statistics(update,context):
+    try:
+        records = sheet.get_all_records()
+        submitted = checked = approved = rejected = 0
+
+        for row in records:
+            submitted += 1
+            status = row.get("Статус","").strip().lower()
+            if row.get("Дата перевірки","").strip():
+                checked += 1
+                if status == "✅ Погоджено":
+                    approved += 1
+                elif status == "❌ Не погоджено":
+                    rejected += 1
+
+        text = (
+            f"📈 *Загальна статистика за весь період*\n\n"
+            f"🔹 Подано: *{submitted}*\n"
+            f"🔸 Перевірено: *{checked}*\n"
+            f"✅ Погоджено: *{approved}*\n"
+            f"❌ Не погоджено: *{rejected}*"
+        )
+        await update.message.reply_text(text,parse_mode = "Markdown")
+    except Exception as e:
+        await update.message.reply_text("⚠️ Помилка при зчитуванні таблиці.")
+    return STATISTICS_MENU
+
 # === Обробник повернення назад з меню аналітики ===
 async def analytics_back(update, context):
     keyboard = get_main_keyboard(update.effective_user.id)
@@ -213,6 +241,7 @@ analytics_conv = ConversationHandler(
         STATISTICS_MENU: [
             MessageHandler(filters.Regex("^📅 За період$"), ask_period_start),
             MessageHandler(filters.Regex("^📆 Стандарт$"), show_standard_statistics),
+            MessageHandler(filters.Regex("^📈 Загальна статистика$"),show_overall_statistics),
             MessageHandler(filters.Regex("^⬅️ Назад$"), analytics_back),
         ],
         STATISTICS_PERIOD_START: [
