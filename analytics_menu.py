@@ -138,7 +138,7 @@ async def sgow_standart_statistics(update,context):
         yesterday = today - timedelta(days=1)
 
     def get_status_for_date(date_obj):
-        formatted = date_obj.strftime("%d.%m.$y")
+        formatted = date_obj.strftime("%d.%m.%y")
         total = checked = positive = negative = 0
         try:
             records = sheet.get_all_records()
