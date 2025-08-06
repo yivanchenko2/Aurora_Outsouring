@@ -70,6 +70,7 @@ def normalize_ipn(ipn):
 
 # --- Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = get_main_keyboard(update.effective_user.id)
     await update.message.reply_text(
         "*👋 Вітаю!*\n\nЦей бот створений командою Аврора для перевірки працівників аутсорсу\n"
         "Якщо ви хочете додати працівника на перевірку, натисність:\n"
@@ -86,7 +87,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "*Субота та неділя - не робочі дні*, тому якщо ви надіслали працівника на перевірку у п'ятницю, результат буде у цей же день, або у понеділок.\n\n"
         "Бажаємо гарного дня!",
         parse_mode="Markdown",
-        reply_markup=main_keyboard
+        reply_markup=keyboard
     )
     return CHOOSING
 
@@ -123,12 +124,12 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data = sheet.get_all_records(expected_headers=HEADERS)
     except Exception as e:
         logging.error(f"Помилка зчитування таблиці: {e}")
-        await update.message.reply_text("⚠️ Не вдалося перевірити таблицю. Спробуйте пізніше.", reply_markup=main_keyboard)
+        await update.message.reply_text("⚠️ Не вдалося перевірити таблицю. Спробуйте пізніше.", reply_markup=get_main_keyboard(update.effective_user.id))
         return CHOOSING
 
     for row in data:
         if normalize_ipn(row.get("ІПН")) == normalize_ipn(ipn):
-            await update.message.reply_text("🚫 Працівник з таким ІПН вже існує. Спробуйте інший або перевірте статус.", reply_markup=main_keyboard)
+            await update.message.reply_text("🚫 Працівник з таким ІПН вже існує. Спробуйте інший або перевірте статус.", reply_markup=get_main_keyboard(update.effective_user.id))
             return CHOOSING
 
     birthdate = calculate_birthdate(ipn)
@@ -140,7 +141,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logging.info(f"📝 Додаємо рядок: {new_row}")
         sheet.append_row(new_row)
         logging.info("✅ Рядок успішно додано до Google Таблиці.")
-        await update.message.reply_text("✅ Працівника додано!", reply_markup=main_keyboard)
+        await update.message.reply_text("✅ Працівника додано!", reply_markup=get_main_keyboard(update.effective_user.id))
         try:
             senders_sheet = client.open("Перевірка аутсорс").worksheet("Відправники")
             telegram_id = str(update.effective_user.id)
@@ -150,7 +151,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logging.error(f"❌ Не вдалося записати Telegram ID: {e}")
     except Exception as e:
         logging.error(f"❌ Помилка при додаванні до таблиці: {e}")
-        await update.message.reply_text("⚠️ Не вдалося додати до таблиці. Спробуйте пізніше.", reply_markup=main_keyboard)
+        await update.message.reply_text("⚠️ Не вдалося додати до таблиці. Спробуйте пізніше.", reply_markup=get_main_keyboard(update.effective_user.id))
 
     return CHOOSING
 
@@ -190,12 +191,12 @@ async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not found:
             response_lines.append(f"{ipn} – ❌ Не знайдено")
 
-    await update.message.reply_text("\n".join(response_lines), reply_markup=main_keyboard)
+    await update.message.reply_text("\n".join(response_lines), reply_markup=get_main_keyboard(update.effective_user.id))
     return CHOOSING
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔙 Скасовано.", reply_markup=main_keyboard)
+    await update.message.reply_text("🔙 Скасовано.", reply_markup=get_main_keyboard(update.effective_user.id))
     return CHOOSING
 
 # --- Main ---
