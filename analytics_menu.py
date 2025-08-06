@@ -17,6 +17,13 @@ statistics_keyboard = ReplyKeyboardMarkup([
     ["⬅️ Назад"]
 ], resize_keyboard=True)
 
+def parse_date_input(text):
+    text = text.strip().replace("/", ".")
+    try:
+        return datetime.strptime(text, "%d.%m.%y")
+    except ValueError:
+        return None
+
 # === Обробник кнопки "📊 Аналітика" ===
 async def show_analytics_menu(update, context):
     await update.message.reply_text("📊 *Меню аналітики*", reply_markup=analytics_keyboard, parse_mode="Markdown")
