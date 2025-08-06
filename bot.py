@@ -206,7 +206,10 @@ if __name__ == "__main__":
             ],
             ENTER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)],
             ENTER_IPN: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)],
-            CHECK_STATUS: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)],
+            CHECK_STATUS: [
+                MessageHandler(filters.Regex("^❌ Скасувати|Скасувати$"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)
+            ],
         },
         fallbacks=[MessageHandler(filters.Regex("^❌ Скасувати$"), cancel)],
         allow_reentry=True
