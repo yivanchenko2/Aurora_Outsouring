@@ -78,7 +78,7 @@ async def ask_period_end(update,context):
 
 async def show_statistics_period(update,context):
     try:
-        end_date = datetime.strptime(update.message.text.strip(),"%d,%m,%y")
+        end_date = datetime.strptime(update.message.text.strip(),"%d.%m.%y")
         start_date = context.user_data.get("stat_start")
         if not start_date:
             raise ValueError("Немає початкової дати")
