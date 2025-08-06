@@ -37,7 +37,6 @@ async def ask_analytics_date(update, context):
 async def show_employees_by_date(update, context):
     date_str = update.message.text.strip()
     try:
-        # Пробуємо парсити дату
         dt = datetime.strptime(date_str, "%d.%m.%y")
         formatted_date = dt.strftime("%d.%m.%y")
     except ValueError:
@@ -72,24 +71,24 @@ async def ask_period_start(update, context):
     await update.message.reply_text("🗓 Введіть початкову дату у форматі дд.мм.рр:")
     return STATISTICS_PERIOD_START
 
-async def ask_period_end(update,context):
+async def ask_period_end(update, context):
     try:
-        start_date = datetime.strptime(update.message.text.strip(),"%d.%m.%y")
+        start_date = datetime.strptime(update.message.text.strip(), "%d.%m.%y")
         context.user_data["stat_start"] = start_date
     except:
         await update.message.reply_text("❌ Невірний формат. Спробуйте ще раз:")
         return STATISTICS_PERIOD_START
-    
+
     await update.message.reply_text("📆 Тепер введіть кінцеву дату у форматі дд.мм.рр:")
     return STATISTICS_PERIOD_END
 
-async def show_statistics_period(update,context):
+async def show_statistics_period(update, context):
     try:
-        end_date = datetime.strptime(update.message.text.strip(),"%d.%m.%y")
+        end_date = datetime.strptime(update.message.text.strip(), "%d.%m.%y")
         start_date = context.user_data.get("stat_start")
         if not start_date:
             raise ValueError("Немає початкової дати")
-        
+
         records = sheet.get_all_records()
         submitted = checked = positive = negative = 0
 
@@ -118,18 +117,17 @@ async def show_statistics_period(update,context):
             f"❌ Негативних: *{negative}*"
         )
 
-        await update.message.reply_text(text,parse_mode = "Markdown")
+        await update.message.reply_text(text, parse_mode="Markdown")
     except:
-        await update.massege.reply_text("⚠️ Помилка обробки. Переконайтесь, що дати у форматі дд.мм.рр.")
+        await update.message.reply_text("⚠️ Помилка обробки. Переконайтесь, що дати у форматі дд.мм.рр.")
         return STATISTICS_MENU
-    
-    return await analytics_back(update,context)
+
+    return await analytics_back(update, context)
 
 async def show_standard_statistics(update, context):
     today = datetime.today()
     weekday = today.weekday()
 
-    # Обчислення вчорашнього дня з урахуванням вихідних
     if weekday == 0:
         yesterday = today - timedelta(days=3)
     elif weekday == 6:
@@ -153,7 +151,7 @@ async def show_standard_statistics(update, context):
                         rejected += 1
         except Exception as e:
             print(f"Помилка читання: {e}")
-        return formatted, checked, approved, rejected
+        return total, formatted, checked, approved, rejected
 
     def get_submitted_for_date(date_obj):
         formatted = date_obj.strftime("%d.%m.%y")
@@ -168,26 +166,20 @@ async def show_standard_statistics(update, context):
         except:
             return 0
 
-    # Збір статистики
-    t_date_str = today.strftime("%d.%m.%y")
-    y_date_str = yesterday.strftime("%d.%m.%y")
+    t_total, t_formatted, t_checked, t_approved, t_rejected = get_stats_for_check_date(today)
+    y_total, y_formatted, y_checked, y_approved, y_rejected = get_stats_for_check_date(yesterday)
 
     t_submitted = get_submitted_for_date(today)
     y_submitted = get_submitted_for_date(yesterday)
-
-    _, t_checked, t_approved, t_rejected = get_stats_for_check_date(today)
-    _, y_checked, y_approved, y_rejected = get_stats_for_check_date(yesterday)
-
     pending_total = count_pending()
 
-    # Повідомлення
     text = (
-        f"📆 *Статистика за сьогодні* ({t_date_str}):\n"
+        f"📆 *Статистика за сьогодні* ({t_formatted}):\n"
         f"• Подано: {t_submitted}\n"
         f"• Перевірено: {t_checked}\n"
         f"• ✅ Погоджено: {t_approved}\n"
         f"• ❌ Не погоджено: {t_rejected}\n\n"
-        f"📅 *Статистика за вчора* ({y_date_str}):\n"
+        f"📅 *Статистика за вчора* ({y_formatted}):\n"
         f"• Подано: {y_submitted}\n"
         f"• Перевірено: {y_checked}\n"
         f"• ✅ Погоджено: {y_approved}\n"
@@ -197,7 +189,6 @@ async def show_standard_statistics(update, context):
 
     await update.message.reply_text(text, parse_mode="Markdown")
     return STATISTICS_MENU
-                        
 
 # === Обробник повернення назад з меню аналітики ===
 async def analytics_back(update, context):
@@ -220,7 +211,7 @@ analytics_conv = ConversationHandler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, show_employees_by_date)
         ],
         STATISTICS_MENU: [
-            MessageHandler(filters.Regex("^📅 За період$"),ask_period_start),
+            MessageHandler(filters.Regex("^📅 За період$"), ask_period_start),
             MessageHandler(filters.Regex("^📆 Стандарт$"), show_standard_statistics),
             MessageHandler(filters.Regex("^⬅️ Назад$"), analytics_back),
         ],
@@ -231,8 +222,6 @@ analytics_conv = ConversationHandler(
             MessageHandler(filters.TEXT & ~filters.COMMAND, show_statistics_period)
         ]
     },
-    
-    
     fallbacks=[MessageHandler(filters.Regex("^⬅️ Назад$"), analytics_back)],
     allow_reentry=True
 )
