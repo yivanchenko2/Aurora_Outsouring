@@ -1,7 +1,7 @@
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import ConversationHandler, MessageHandler, filters
 from bot import CHOOSING, get_main_keyboard, sheet
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # --- Стани для аналітики ---
 ANALYTICS_MENU, ANALYTICS_DATE_INPUT, STATISTICS_MENU, STATISTICS_PERIOD_START, STATISTICS_PERIOD_END, STATISTICS_STANDARD = range(100, 106)
@@ -125,6 +125,56 @@ async def show_statistics_period(update,context):
     
     return await analytics_back(update,context)
 
+async def sgow_standart_statistics(update,context):
+    today = datetime.today()
+    #Вчора пропускаючи сб та нд
+    weekday = today.weekday()
+
+    if weekday == 0:
+        yesterday = today - timedelta(days=3)
+    elif weekday == 6:
+        yesterday = today - timedelta(days=2)
+    else:
+        yesterday = today - timedelta(days=1)
+
+    def get_status_for_date(date_obj):
+        formatted = date_obj.strftime("%d.%m.$y")
+        total = checked = positive = negative = 0
+        try:
+            records = sheet.get_all_records()
+            for row in records:
+                if row.get("Дата") == formatted:
+                    total += 1
+                    status = row.get("Статус","").strip()
+                    if status != "Очікує погодження":
+                        checked += 1
+                    elif status == "✅ Погоджено":
+                        positive += 1
+                    elif status == "❌ Не погоджено":
+                        negative += 1
+        except Exception as e:
+            print(f"Помилка читання даних: {e}")
+        
+    today_str,t_total,t_checked,t_pos,t_neg = get_status_for_date(today)
+    yest_str,y_total,y_checked,y_pos,y_neg = get_status_for_date(yesterday)
+
+    text = (
+        f"📆 *Статистика за сьогодні* ({today_str}):\n"
+        f"• Подано: {t_total}\n"
+        f"• Перевірено: {t_checked}\n"
+        f"• ✅ Позитивно: {t_pos}\n"
+        f"• ❌ Негативно: {t_neg}\n\n"
+        f"📅 *Статистика за вчора* ({yest_str}):\n"
+        f"• Подано: {y_total}\n"
+        f"• Перевірено: {y_checked}\n"
+        f"• ✅ Позитивно: {y_pos}\n"
+        f"• ❌ Негативно: {y_neg}"
+    )
+
+    await update.message.reply_text(text,parse_mode = "Markdown")
+    return STATISTICS_MENU
+                        
+
 # === Обробник повернення назад з меню аналітики ===
 async def analytics_back(update, context):
     keyboard = get_main_keyboard(update.effective_user.id)
@@ -147,7 +197,7 @@ analytics_conv = ConversationHandler(
         ],
         STATISTICS_MENU: [
             MessageHandler(filters.Regex("^📅 За період$"),ask_period_start),
-            MessageHandler(filters.Regex("^📆 Стандарт$"), lambda u, c: u.message.reply_text("🔧 Ще в розробці...")),
+            MessageHandler(filters.Regex("^📆 Стандарт$"), sgow_standart_statistics),
             MessageHandler(filters.Regex("^⬅️ Назад$"), analytics_back),
         ],
         STATISTICS_PERIOD_START: [
