@@ -240,7 +240,7 @@ analytics_conv = ConversationHandler(
         ],
         STATISTICS_MENU: [
             MessageHandler(filters.Regex("^📅 За період$"), ask_period_start),
-            MessageHandler(filters.Regex("^📆 Стандарт$"), show_standard_statistics),
+            MessageHandler(filters.Regex("^📆 Сьогодні/вчора$"), show_standard_statistics),
             MessageHandler(filters.Regex("^📈 Загальна статистика$"),show_overall_statistics),
             MessageHandler(filters.Regex("^⬅️ Назад$"), analytics_back),
         ],
