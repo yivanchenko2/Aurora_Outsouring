@@ -74,7 +74,7 @@ async def ask_period_start(update, context):
 
 async def ask_period_end(update,context):
     try:
-        start_date = datetime.strptime(update.message.text.strip(),"%d,%m,%y")
+        start_date = datetime.strptime(update.message.text.strip(),"%d.%m.%y")
         context.user_data["stat_start"] = start_date
     except:
         await update.message.reply_text("❌ Невірний формат. Спробуйте ще раз:")
