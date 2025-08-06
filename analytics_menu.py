@@ -37,6 +37,8 @@ async def ask_analytics_date(update, context):
 
 async def show_employees_by_date(update, context):
     date_str = update.message.text.strip()
+    if date_str.lower() in ["назад", "⬅️ назад"]:
+        return await analytics_back(update,context)
     try:
         dt = datetime.strptime(date_str, "%d.%m.%y")
         formatted_date = dt.strftime("%d.%m.%y")
