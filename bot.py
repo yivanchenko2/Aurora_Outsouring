@@ -204,8 +204,14 @@ if __name__ == "__main__":
                 MessageHandler(filters.Regex("^📋 Перевірити статус$"), start_check),
                 MessageHandler(filters.Regex("^❌ Скасувати$"), cancel),
             ],
-            ENTER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)],
-            ENTER_IPN: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)],
+            ENTER_NAME: [
+                MessageHandler(filters.Regex("^❌ Скасувати|Скасувати$"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)
+            ],
+            ENTER_IPN: [
+                MessageHandler(filters.Regex("^❌ Скасувати|Скасувати$"), cancel),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)
+            ],
             CHECK_STATUS: [
                 MessageHandler(filters.Regex("^❌ Скасувати|Скасувати$"), cancel),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)
