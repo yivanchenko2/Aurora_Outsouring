@@ -145,9 +145,9 @@ async def show_standard_statistics(update, context):
                 if check_date == formatted:
                     checked += 1
                     status = row.get("Статус", "").strip()
-                    if status == "Погоджено":
+                    if status == "✅ Погоджено":
                         approved += 1
-                    elif status == "Не погоджено":
+                    elif status == "❌ Не погоджено":
                         rejected += 1
         except Exception as e:
             print(f"Помилка читання: {e}")
