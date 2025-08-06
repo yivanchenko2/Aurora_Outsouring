@@ -155,9 +155,17 @@ async def sgow_standart_statistics(update,context):
         except Exception as e:
             print(f"Помилка читання даних: {e}")
         return formatted,total,checked,positive,negative
+    
+    def count_pending():
+        try:
+            return sum(1 for row in sheet.get_all_records() if row.get("Статус","").strip()=="Очікує погодження")
+        except Exception as e:
+            print(f"Помилка при підрахунку очікуючих: {e}")
+            return 0
         
     today_str,t_total,t_checked,t_pos,t_neg = get_status_for_date(today)
     yest_str,y_total,y_checked,y_pos,y_neg = get_status_for_date(yesterday)
+    pending_total = count_pending()
 
     text = (
         f"📆 *Статистика за сьогодні* ({today_str}):\n"
@@ -169,7 +177,9 @@ async def sgow_standart_statistics(update,context):
         f"• Подано: {y_total}\n"
         f"• Перевірено: {y_checked}\n"
         f"• ✅ Позитивно: {y_pos}\n"
-        f"• ❌ Негативно: {y_neg}"
+        f"• ❌ Негативно: {y_neg}\n"
+        f"\n"
+        f"⏳ *Очікує погодження зараз:* {pending_total}"
     )
 
     await update.message.reply_text(text,parse_mode = "Markdown")
