@@ -10,17 +10,19 @@ from telegram.ext import (
 )
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from analytics_menu import analytics_handlers
 
-# === Логування ===
+# Logging
 logging.basicConfig(level=logging.INFO)
 
-# === Доступ до аналітики ===
+# --- Стани ---
+CHOOSING, ENTER_NAME, ENTER_IPN, CHECK_STATUS = range(4)
+
+# --- Список користувачів з доступом до аналітики ---
 ANALYTICS_USERS = [7555663197]
+
 def is_analytics_user(user_id):
     return user_id in ANALYTICS_USERS
 
-# === Клавіатура головного меню ===
 def get_main_keyboard(user_id):
     if is_analytics_user(user_id):
         return ReplyKeyboardMarkup([
@@ -28,30 +30,26 @@ def get_main_keyboard(user_id):
             ["📋 Перевірити статус"],
             ["📊 Аналітика"]
         ], resize_keyboard=True)
-    return ReplyKeyboardMarkup([
-        ["➕ Додати працівника"],
-        ["📋 Перевірити статус"]
-    ], resize_keyboard=True)
+    else:
+        return ReplyKeyboardMarkup([
+            ["➕ Додати працівника"],
+            ["📋 Перевірити статус"]
+        ], resize_keyboard=True)
 
-# === Стани розмов
-CHOOSING, ENTER_NAME, ENTER_IPN, CHECK_STATUS = range(4)
-
-# GSpread авторизація
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_dict = json.loads(os.getenv("Google_Creds_Json"))
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-client = gspread.authorize(creds)
-sheet = client.open("Перевірка аутсорс").worksheet("Кандидати")\
-
-__all__ = ["client","sheet"]
-
-HEADERS = ["Дата", "ПІБ", "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"]
-
-# === Утиліти ===
 cancel_keyboard = ReplyKeyboardMarkup([
     ["❌ Скасувати"]
 ], resize_keyboard=True)
 
+# --- Підключення до Google Таблиці ---
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds_dict = json.loads(os.getenv("Google_Creds_Json"))
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+client = gspread.authorize(creds)
+sheet = client.open("Перевірка аутсорс").worksheet("Кандидати")
+
+HEADERS = ["Дата", "ПІБ", "Дата народження", "ІПН", "Статус", "Перевіряючий", "Коментар"]
+
+# --- Перевірки ---
 def is_valid_ipn(text):
     return text.isdigit() and len(text) == 10
 
@@ -68,31 +66,17 @@ def calculate_birthdate(ipn):
 def normalize_ipn(ipn):
     return str(ipn).strip().zfill(10)
 
-# --- Handlers ---
+# --- Обробники ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = get_main_keyboard(update.effective_user.id)
     await update.message.reply_text(
-        "*👋 Вітаю!*\n\nЦей бот створений командою Аврора для перевірки працівників аутсорсу\n"
-        "Якщо ви хочете додати працівника на перевірку, натисність:\n"
-        "========================================================\n"
-        "                                           ➕ Додати працівника\n"
-        "========================================================\n"
-        "Якщо ви хочете перевірити чи погоджений/не погоджений працівник, натисніть:\n"
-        "========================================================\n"
-        "                                           📋 Перевірити статус\n"
-        "========================================================\n\n"
-        "Можна здійснювати перевірку більше одного працівника.\n"
-        "Для цього внесіть ІПН декількох працівників через пробіл або в стовпчик.\n\n"
-        "*Важливо.* Перевірка працівників здійснюється *до 24 годин*.\n"
-        "*Субота та неділя - не робочі дні*, тому якщо ви надіслали працівника на перевірку у п'ятницю, результат буде у цей же день, або у понеділок.\n\n"
-        "Бажаємо гарного дня!",
+        "*👋 Вітаю!*\n\nЦей бот створений командою Аврора для перевірки працівників аутсорсу...",
         parse_mode="Markdown",
-        reply_markup=keyboard
+        reply_markup=get_main_keyboard(update.effective_user.id)
     )
     return CHOOSING
 
 async def start_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✍️ Введіть ПІБ працівника у форматі: Прізвище Ім’я По-батькові):", reply_markup=cancel_keyboard)
+    await update.message.reply_text("✍️ Введіть ПІБ працівника:", reply_markup=cancel_keyboard)
     return ENTER_NAME
 
 async def enter_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,11 +85,11 @@ async def enter_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await cancel(update, context)
 
     if len(text.split()) < 2:
-        await update.message.reply_text("❗ Введіть ПІБ у форматі: Прізвище Ім’я По-батькові")
+        await update.message.reply_text("❗ Формат: Прізвище Ім’я По-батькові")
         return ENTER_NAME
 
     context.user_data["pib"] = proper_case(text)
-    await update.message.reply_text("🔢 Введіть ІПН (10 цифр без пробілів та інших знаків):", reply_markup=cancel_keyboard)
+    await update.message.reply_text("🔢 Введіть ІПН (10 цифр):", reply_markup=cancel_keyboard)
     return ENTER_IPN
 
 async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -114,7 +98,7 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await cancel(update, context)
 
     if not is_valid_ipn(text):
-        await update.message.reply_text("❌ ІПН має містити рівно 10 цифр. Спробуйте ще раз:")
+        await update.message.reply_text("❌ ІПН має містити 10 цифр.")
         return ENTER_IPN
 
     ipn = text
@@ -123,40 +107,39 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         data = sheet.get_all_records(expected_headers=HEADERS)
     except Exception as e:
-        logging.error(f"Помилка зчитування таблиці: {e}")
-        await update.message.reply_text("⚠️ Не вдалося перевірити таблицю. Спробуйте пізніше.", reply_markup=get_main_keyboard(update.effective_user.id))
+        logging.error(f"Помилка зчитування: {e}")
+        await update.message.reply_text("⚠️ Спробуйте пізніше.", reply_markup=get_main_keyboard(update.effective_user.id))
         return CHOOSING
 
     for row in data:
         if normalize_ipn(row.get("ІПН")) == normalize_ipn(ipn):
-            await update.message.reply_text("🚫 Працівник з таким ІПН вже існує. Спробуйте інший або перевірте статус.", reply_markup=get_main_keyboard(update.effective_user.id))
+            await update.message.reply_text("🚫 Працівник вже існує.", reply_markup=get_main_keyboard(update.effective_user.id))
             return CHOOSING
 
     birthdate = calculate_birthdate(ipn)
     full_name = context.user_data["pib"]
     current_date = datetime.today().strftime("%d.%m.%y")
-    new_row = [current_date, full_name, birthdate, ipn, "Очікує погодження", "", "",""]
+    new_row = [current_date, full_name, birthdate, ipn, "Очікує погодження", "", "", ""]
 
     try:
-        logging.info(f"📝 Додаємо рядок: {new_row}")
         sheet.append_row(new_row)
-        logging.info("✅ Рядок успішно додано до Google Таблиці.")
         await update.message.reply_text("✅ Працівника додано!", reply_markup=get_main_keyboard(update.effective_user.id))
+
         try:
             senders_sheet = client.open("Перевірка аутсорс").worksheet("Відправники")
             telegram_id = str(update.effective_user.id)
             senders_sheet.append_row([ipn, telegram_id])
-            logging.info(f"✅ Telegram ID {telegram_id} збережено для ІПН {ipn}")
         except Exception as e:
-            logging.error(f"❌ Не вдалося записати Telegram ID: {e}")
+            logging.error(f"Не вдалося записати Telegram ID: {e}")
+
     except Exception as e:
-        logging.error(f"❌ Помилка при додаванні до таблиці: {e}")
-        await update.message.reply_text("⚠️ Не вдалося додати до таблиці. Спробуйте пізніше.", reply_markup=get_main_keyboard(update.effective_user.id))
+        logging.error(f"Помилка запису: {e}")
+        await update.message.reply_text("⚠️ Не вдалося додати.", reply_markup=get_main_keyboard(update.effective_user.id))
 
     return CHOOSING
 
 async def start_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🔎 Введіть ІПН працівника:", reply_markup=cancel_keyboard)
+    await update.message.reply_text("🔎 Введіть один або кілька ІПН (через пробіл):", reply_markup=cancel_keyboard)
     return CHECK_STATUS
 
 async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -166,72 +149,60 @@ async def check_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     ipns = text.split()
     if not all(ipn.isdigit() and len(ipn) == 10 for ipn in ipns):
-        await update.message.reply_text("❌ Кожен ІПН має містити рівно 10 цифр. Введіть один або кілька ІПН через пробіл:")
+        await update.message.reply_text("❌ Усі ІПН мають містити 10 цифр.")
         return CHECK_STATUS
 
     try:
         data = sheet.get_all_records()
     except Exception as e:
-        logging.error(f"Помилка при зчитуванні таблиці: {e}")
-        await update.message.reply_text("⚠️ Помилка при зчитуванні таблиці.")
+        logging.error(f"Помилка при зчитуванні: {e}")
+        await update.message.reply_text("⚠️ Не вдалося зчитати дані.")
         return CHOOSING
 
-    response_lines = []
-
+    response = []
     for ipn in ipns:
         found = False
         for row in data:
-            row_ipn = str(row.get("ІПН", "")).zfill(10)
-            if row_ipn == ipn:
-                pib = row.get("ПІБ") or f'{row.get("Імя", "")} {row.get("По батькові", "")}'.strip()
-                status = row.get("Статус", "Невідомо")
-                response_lines.append(f"{ipn} – {pib} – {status}")
+            if str(row.get("ІПН", "")).zfill(10) == ipn:
+                response.append(f"{ipn} – {row.get('ПІБ')} – {row.get('Статус')}")
                 found = True
                 break
         if not found:
-            response_lines.append(f"{ipn} – ❌ Не знайдено")
+            response.append(f"{ipn} – ❌ Не знайдено")
 
-    await update.message.reply_text("\n".join(response_lines), reply_markup=get_main_keyboard(update.effective_user.id))
+    await update.message.reply_text("\n".join(response), reply_markup=get_main_keyboard(update.effective_user.id))
     return CHOOSING
-
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("🔙 Скасовано.", reply_markup=get_main_keyboard(update.effective_user.id))
     return CHOOSING
 
-# --- Main ---
+# --- Запуск ---
 if __name__ == "__main__":
+    from analytics_menu import analytics_handlers
+
     app = ApplicationBuilder().token(os.getenv("Telegram_Token")).build()
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
             CHOOSING: [
-                MessageHandler(filters.Regex("^(➕ Додати працівника)$"), start_add),
-                MessageHandler(filters.Regex("^(📋 Перевірити статус)$"), start_check),
-                MessageHandler(filters.Regex("^(❌ Скасувати|Скасувати)$"), cancel)
+                MessageHandler(filters.Regex("^➕ Додати працівника$"), start_add),
+                MessageHandler(filters.Regex("^📋 Перевірити статус$"), start_check),
+                MessageHandler(filters.Regex("^❌ Скасувати$"), cancel),
             ],
-            ENTER_NAME: [
-                MessageHandler(filters.Regex("^(❌ Скасувати|Скасувати)$"), cancel),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)
-            ],
-            ENTER_IPN: [
-                MessageHandler(filters.Regex("^(❌ Скасувати|Скасувати)$"), cancel),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)
-            ],
-            CHECK_STATUS: [
-                MessageHandler(filters.Regex("^(❌ Скасувати|Скасувати)$"), cancel),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)
-            ],
+            ENTER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_name)],
+            ENTER_IPN: [MessageHandler(filters.TEXT & ~filters.COMMAND, enter_ipn)],
+            CHECK_STATUS: [MessageHandler(filters.TEXT & ~filters.COMMAND, check_ipn)],
         },
-        fallbacks=[
-            MessageHandler(filters.Regex("^(❌ Скасувати|Скасувати)$"), cancel)
-        ],
+        fallbacks=[MessageHandler(filters.Regex("^❌ Скасувати$"), cancel)],
         allow_reentry=True
     )
 
     app.add_handler(conv)
+
+    # Додаємо аналітичні обробники
     for handler in analytics_handlers:
         app.add_handler(handler)
-        
+
     app.run_polling()
