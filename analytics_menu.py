@@ -154,6 +154,7 @@ async def sgow_standart_statistics(update,context):
                         negative += 1
         except Exception as e:
             print(f"Помилка читання даних: {e}")
+        return formatted,total,checked,positive,negative
         
     today_str,t_total,t_checked,t_pos,t_neg = get_status_for_date(today)
     yest_str,y_total,y_checked,y_pos,y_neg = get_status_for_date(yesterday)
