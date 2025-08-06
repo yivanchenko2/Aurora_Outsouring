@@ -61,6 +61,63 @@ async def ask_statistics_type(update, context):
     await update.message.reply_text("📊 Оберіть тип статистики:", reply_markup=statistics_keyboard)
     return STATISTICS_MENU
 
+async def ask_period_start(update, context):
+    await update.message.reply_text("🗓 Введіть початкову дату у форматі дд.мм.рр:")
+    return STATISTICS_PERIOD_START
+
+async def ask_period_end(update,context):
+    try:
+        start_date = datetime.strptime(update.message.text.strip(),"%d,%m,%y")
+        context.user_data["stat_start"] = start_date
+    except:
+        await update.message.reply_text("❌ Невірний формат. Спробуйте ще раз:")
+        return STATISTICS_PERIOD_START
+    
+    await update.message.reply_text("📆 Тепер введіть кінцеву дату у форматі дд.мм.рр:")
+    return STATISTICS_PERIOD_END
+
+async def show_statistics_period(update,context):
+    try:
+        end_date = datetime.strptime(update.message.text.strip(),"%d,%m,%y")
+        start_date = context.user_data.get("stat_start")
+        if not start_date:
+            raise ValueError("Немає початкової дати")
+        
+        records = sheet.get_all_records()
+        submitted = checked = positive = negative = 0
+
+        for row in records:
+            row_date_str = row.get("Дата")
+            try:
+                row_date = datetime.strptime(row_date_str, "%d.%m.%y")
+            except:
+                continue
+
+            if start_date <= row_date <= end_date:
+                submitted += 1
+                status = row.get("Статус", "").lower()
+                if status != "очікує погодження":
+                    checked += 1
+                    if "погоджено" in status:
+                        positive += 1
+                    elif "не погоджено" in status:
+                        negative += 1
+
+        text = (
+            f"📊 *Статистика з {start_date.strftime('%d.%m.%y')} по {end_date.strftime('%d.%m.%y')}*\n\n"
+            f"🔹 Подано: *{submitted}*\n"
+            f"🔸 Перевірено: *{checked}*\n"
+            f"✅ Позитивних: *{positive}*\n"
+            f"❌ Негативних: *{negative}*"
+        )
+
+        await update.message.reply_text(text,parse_mode = "Markdown")
+    except:
+        await update.massege.reply_text("⚠️ Помилка обробки. Переконайтесь, що дати у форматі дд.мм.рр.")
+        return STATISTICS_MENU
+    
+    return await analytics_back(update,context)
+
 # === Обробник повернення назад з меню аналітики ===
 async def analytics_back(update, context):
     keyboard = get_main_keyboard(update.effective_user.id)
@@ -81,7 +138,20 @@ analytics_conv = ConversationHandler(
         ANALYTICS_DATE_INPUT: [
             MessageHandler(filters.TEXT & ~filters.COMMAND, show_employees_by_date)
         ],
+        STATISTICS_MENU: [
+            MessageHandler(filters.Regex("^📅 За період$"),ask_period_start),
+            MessageHandler(filters.Regex("^📆 Стандарт$"), lambda u, c: u.message.reply_text("🔧 Ще в розробці...")),
+            MessageHandler(filters.Regex("^⬅️ Назад$"), analytics_back),
+        ],
+        STATISTICS_PERIOD_START: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, ask_period_end),
+        ],
+        STATISTICS_PERIOD_END: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, show_statistics_period)
+        ]
     },
+    
+    
     fallbacks=[MessageHandler(filters.Regex("^⬅️ Назад$"), analytics_back)],
     allow_reentry=True
 )
