@@ -198,7 +198,7 @@ async def show_overall_statistics(update,context):
 
         for row in records:
             submitted += 1
-            status = row.get("Статус","").strip().lower()
+            status = row.get("Статус","").strip()
             if row.get("Дата перевірки","").strip():
                 checked += 1
                 if status == "✅ Погоджено":
