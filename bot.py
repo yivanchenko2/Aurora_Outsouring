@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 CHOOSING, ENTER_NAME, ENTER_IPN, CHECK_STATUS = range(4)
 
 # --- Список користувачів з доступом до аналітики ---
-ANALYTICS_USERS = [7555663197,952362307]
+ANALYTICS_USERS = [7555663197,952362307,7784661572]
 
 def is_analytics_user(user_id):
     return user_id in ANALYTICS_USERS
