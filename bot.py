@@ -132,11 +132,12 @@ async def enter_ipn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     birthdate = calculate_birthdate(ipn)
     full_name = context.user_data["pib"]
     current_date = datetime.today().strftime("%d.%m.%y")
-    new_row = [current_date, full_name, birthdate, ipn, "Очікує погодження", "", "", ""]
+    new_row = [current_date, full_name, birthdate, ipn, "Очікує погодження", "", ""]
 
     try:
         sheet.append_row(new_row)
         await update.message.reply_text("✅ Працівника додано!", reply_markup=get_main_keyboard(update.effective_user.id))
+        logging.info(f"✅ Додано в Кандидати: {new_row}")
 
         try:
             senders_sheet = client.open("Перевірка аутсорс").worksheet("Відправники")
