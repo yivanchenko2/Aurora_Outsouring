@@ -10,9 +10,7 @@ from telegram.ext import (
 )
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from dotenv import load_dotenv
 
-load_dotenv()
 
 # ====== ПАРОЛІ ДОСТУПУ ======
 SECURITY_PASSWORD = "secr5541"
